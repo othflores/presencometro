@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+
+  <!-- Hero -->
+  <div style="padding: 2rem 0 1.5rem; position:relative;">
+    <div class="tag-line" style="margin-bottom:.8rem;">
+      <span class="dim">$ </span><span class="hi">python</span> presencometro.py <span class="dim">--turma</span> 3C-TDS
+    </div>
+    <h2 style="font-family:var(--mono); font-size:clamp(1.4rem,5vw,2rem); font-weight:700; line-height:1.2; margin-bottom:.6rem;">
+      <span style="color:var(--accent3);">registro de</span><br>
+      <span style="background: linear-gradient(90deg, #a855f7, #c084fc, #22d3ee); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">presença</span>
+      <span style="color:var(--muted);">.exe</span>
+    </h2>
+    <p style="color:var(--muted2); font-family:var(--mono); font-size:.82rem; display:flex; flex-wrap:wrap; gap:.5rem 1rem;">
+      <span><span style="color:var(--green);">✔</span> GPS ativo</span>
+      <span><span style="color:var(--accent3);">{{ sessions|selectattr('active')|list|length }}</span> sessão(ões) ativa(s)</span>
+      <span><span style="color:var(--cyan);">{{ sessions|length }}</span> total</span>
+    </p>
+  </div>
+
+  <!-- Nova sessão -->
+  <div class="card card-accent">
+    <div class="section-label">// nova_sessao.init()</div>
+
+    <div class="form-group">
+      <label>// nome_da_sessao</label>
+      <input id="sess-name" type="text" placeholder="ex: Aula de Algoritmos — 3ºC" autocomplete="off" />
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>// raio_maximo (metros)</label>
+        <input id="sess-radius" type="number" value="100" min="10" max="5000" inputmode="numeric" />
+      </div>
+      <div class="form-group">
+        <label>// localizacao_base</label>
+        <button class="btn btn-outline" id="btn-locate" onclick="getLocation()" style="width:100%; justify-content:center;">
+          📡 capturar GPS
+        </button>
+      </div>
+    </div>
+
+    <div id="loc-info" style="display:none;" class="alert alert-success"></div>
+    <div id="loc-error" style="display:none;" class="alert alert-error"></div>
+
+    <div class="flex" style="margin-top:1rem; flex-wrap:wrap; gap:10px;">
+      <button class="btn btn-primary" onclick="createSession()" id="btn-create" style="flex:1; justify-content:center; min-width:160px;">
+        <span>▶ criar sessão</span>
+      </button>
+      <span style="font-family:var(--mono); font-size:0.72rem; color:var(--muted); align-self:center;">
+        // sem GPS = sem validação
+      </span>
+    </div>
+  </div>
+
+  <!-- Lista de sessões -->
+  <div class="section-label" style="margin-top:1.5rem;">// sessoes[] &nbsp;<span style="color:var(--accent3);">{{ sessions|length }}</span></div>
+
+  {% if not sessions %}
+  <div class="card" style="text-align:center; padding:3rem; color:var(--muted);">
+    <div style="font-family:var(--mono); font-size:2rem; margin-bottom:.5rem; opacity:.3;">[ ]</div>
+    <p style="font-family:var(--mono); font-size:.82rem;">// nenhuma sessão encontrada</p>
+  </div>
+  {% endif %}
+
+  {% for s in sessions %}
+  <div class="card" style="border-left: 3px solid {{ '#a855f7' if s.active else '#1e2744' }}; padding: 1.2rem 1.5rem;">
+    <div class="flex-between">
+      <div style="flex:1; min-width:0;">
+        <div class="flex" style="margin-bottom:5px; flex-wrap:wrap; gap:6px;">
+          <strong style="font-family:var(--mono); font-size:.92rem; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px;">{{ s.name }}</strong>
+          {% if s.active %}
+          <span class="badge badge-green"><span class="pulse"></span> online</span>
+          {% else %}
+          <span class="badge badge-red">offline</span>
+          {% endif %}
+          <span class="badge badge-purple">{{ s._count }} presença(s)</span>
+        </div>
+        <div style="font-family:var(--mono); font-size:0.72rem; color:var(--muted); display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
+          <span>📅 {{ s.created_at[:16].replace('T',' às ') }}</span>
+          {% if s.lat %}
+          <span>🔵 {{ s.radius }}m</span>
+          {% else %}
+          <span>🌐 sem restrição geo</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex" style="flex-wrap:wrap; gap:6px; flex-shrink:0; margin-left:8px;">
+        <a href="/session/{{ s.id }}" class="btn btn-outline btn-sm">→ abrir</a>
+        {% if s.active %}
+        <button class="btn btn-outline btn-sm" onclick="copyLink('{{ s.id }}')" title="Copiar link">🔗</button>
+        <button class="btn btn-danger btn-sm" onclick="closeSession('{{ s.id }}', this)">⬛</button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+</div>
+
+<script>
+let locData = null;
+
+function getLocation() {
+  const btn = document.getElementById('btn-locate');
+  btn.innerHTML = '<span class="spinner"></span> obtendo...';
+  btn.disabled = true;
+  if (!navigator.geolocation) {
+    showLocError('❌ geolocalização não suportada neste navegador');
+    btn.innerHTML = '📡 capturar GPS'; btn.disabled = false;
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    locData = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy };
+    const info = document.getElementById('loc-info');
+    info.style.display = 'block';
+    info.innerHTML = `✔ GPS capturado · lat: ${locData.lat.toFixed(5)} · lon: ${locData.lon.toFixed(5)} · ±${Math.round(locData.acc)}m`;
+    document.getElementById('loc-error').style.display = 'none';
+    btn.innerHTML = '✔ GPS capturado'; btn.disabled = false;
+    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${locData.lat}&lon=${locData.lon}&format=json`)
+      .then(r => r.json()).then(d => { locData.address = d.display_name || ''; }).catch(() => {});
+  }, err => {
+    showLocError(err.code === 1 ? '❌ permissão negada — verifique as configurações' : '❌ não foi possível obter localização');
+    btn.innerHTML = '📡 capturar GPS'; btn.disabled = false;
+  }, { enableHighAccuracy: true, timeout: 12000 });
+}
+
+function showLocError(msg) {
+  const el = document.getElementById('loc-error');
+  el.style.display = 'block'; el.textContent = msg;
+}
+
+async function createSession() {
+  const name = document.getElementById('sess-name').value.trim();
+  if (!name) { toast('nome não pode ser vazio', 'err'); return; }
+  const radius = parseInt(document.getElementById('sess-radius').value) || 100;
+  const btn = document.getElementById('btn-create');
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+  const body = { name, radius };
+  if (locData) { body.lat = locData.lat; body.lon = locData.lon; body.address = locData.address || ''; }
+  try {
+    const res = await post('/api/session/new', body);
+    if (res.ok) { toast('sessão criada!'); setTimeout(() => location.reload(), 700); }
+    else { toast(res.error || 'erro ao criar sessão', 'err'); btn.innerHTML = '▶ criar sessão'; btn.disabled = false; }
+  } catch(e) {
+    toast('erro de conexão', 'err'); btn.innerHTML = '▶ criar sessão'; btn.disabled = false;
+  }
+}
+
+async function closeSession(sid, btn) {
+  if (!confirm('encerrar esta sessão?')) return;
+  btn.disabled = true;
+  const res = await post(`/api/session/${sid}/close`, {});
+  if (res.ok) { toast('sessão encerrada'); setTimeout(() => location.reload(), 700); }
+  else { toast(res.error || 'erro', 'err'); btn.disabled = false; }
+}
+
+function copyLink(sid) {
+  const url = `${location.origin}/session/${sid}`;
+  if (navigator.share) {
+    navigator.share({ title: 'Presençômetro', url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(url).then(() => toast('link copiado!'));
+  }
+}
+
+document.getElementById('sess-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') createSession();
+});
+</script>
+{% endblock %}

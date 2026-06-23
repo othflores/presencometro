@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offline · Presençômetro</title>
+<style>
+  body { background:#080b12; color:#e2e8f0; font-family:'JetBrains Mono',monospace;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+  .box { text-align:center; padding:2rem; }
+  .icon { font-size:3rem; margin-bottom:1rem; }
+  h1 { color:#a855f7; font-size:1.2rem; margin-bottom:.5rem; }
+  p { color:#64748b; font-size:.85rem; }
+  button { margin-top:1.5rem; background:#7c3aed; color:#fff; border:none; padding:10px 24px;
+    border-radius:8px; font-family:inherit; font-size:.85rem; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="icon">📡</div>
+  <h1>// sem conexão</h1>
+  <p>Você está offline. Verifique sua conexão e tente novamente.</p>
+  <button onclick="location.reload()">↺ tentar novamente</button>
+</div>
+</body>
+</html>

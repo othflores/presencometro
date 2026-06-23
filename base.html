@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#7c3aed">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Presençômetro">
+<meta name="description" content="Registro de presença com geolocalização — 3ºC TDS">
+<title>Presençômetro · 3ºC TDS</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080b12;
+    --surface: #0d1120;
+    --surface2: #131829;
+    --surface3: #1a2035;
+    --border: #1e2744;
+    --border2: #2a3660;
+    --accent: #7c3aed;
+    --accent2: #a855f7;
+    --accent3: #c084fc;
+    --neon: #9f7aea;
+    --neon-glow: #7c3aed88;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --cyan: #22d3ee;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --muted2: #94a3b8;
+    --radius: 12px;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, #7c3aed18, transparent),
+      linear-gradient(to bottom, #080b12, #080b12);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, #7c3aed04 2px, #7c3aed04 4px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    background: rgba(13,17,32,0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border2);
+    padding: 0 1.5rem;
+    padding-top: var(--safe-top);
+    height: calc(64px + var(--safe-top));
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 0;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 30px #7c3aed18;
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 64px;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 14px; }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    box-shadow: 0 0 16px var(--neon-glow);
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    display: flex; flex-direction: column;
+    line-height: 1.2;
+  }
+  .header-title span:first-child {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent3);
+    letter-spacing: .02em;
+  }
+  .header-title span:last-child {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+  .school-badge {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted2);
+    border: 1px solid var(--border2);
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--surface2);
+    display: none;
+  }
+  @media (min-width: 640px) { .school-badge { display: inline-block; } }
+
+  .nav-link {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: all .18s;
+    border: 1px solid transparent;
+  }
+  .nav-link:hover, .nav-link:focus { color: var(--accent3); border-color: var(--border2); background: var(--surface2); }
+
+  /* PWA install button */
+  #pwa-install-btn {
+    display: none;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent3);
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .18s;
+    white-space: nowrap;
+  }
+  #pwa-install-btn:hover { border-color: var(--accent); }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 2rem 1.5rem; position: relative; z-index: 1; }
+  @media (max-width: 640px) { .container { padding: 1.25rem 1rem; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.2rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: var(--border2); }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #7c3aed06 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .card-accent {
+    border-color: var(--accent);
+    box-shadow: 0 0 24px var(--neon-glow);
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px; border: none;
+    font-family: var(--mono); font-size: 0.82rem; font-weight: 600;
+    cursor: pointer; transition: all .18s; text-decoration: none;
+    letter-spacing: .02em;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    box-shadow: 0 0 20px var(--neon-glow);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 30px var(--neon-glow); filter: brightness(1.1); }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { filter: brightness(1.1); }
+  .btn-outline {
+    background: transparent; color: var(--muted2);
+    border: 1px solid var(--border2);
+  }
+  .btn-outline:hover { color: var(--accent3); border-color: var(--accent); background: var(--surface2); }
+  .btn-sm { padding: 6px 12px; font-size: 0.76rem; }
+
+  input, select {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    outline: none;
+    transition: border .18s, box-shadow .18s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px #7c3aed22;
+  }
+  input::placeholder { color: var(--muted); }
+
+  label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent3);
+    margin-bottom: 6px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .form-group { margin-bottom: 1rem; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-family: var(--mono); font-size: 0.72rem; font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-green { background: #10b98122; color: var(--green); border: 1px solid #10b98144; }
+  .badge-red { background: #ef444422; color: var(--red); border: 1px solid #ef444444; }
+  .badge-yellow { background: #f59e0b22; color: var(--yellow); border: 1px solid #f59e0b44; }
+  .badge-purple { background: #7c3aed22; color: var(--accent3); border: 1px solid #7c3aed44; }
+
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 0.88rem; margin-bottom: 1rem; font-family: var(--mono); }
+  .alert-error { background: #ef444418; border: 1px solid #ef444444; color: #fca5a5; }
+  .alert-success { background: #10b98118; border: 1px solid #10b98144; color: #6ee7b7; }
+
+  .tag-line {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent3);
+    opacity: .6;
+  }
+  .tag-line .dim { color: var(--muted); }
+  .tag-line .hi { color: var(--cyan); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+  .flex { display: flex; align-items: center; gap: 10px; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .text-muted { color: var(--muted2); font-size: 0.85rem; }
+  .mt-1 { margin-top: .5rem; } .mt-2 { margin-top: 1rem; }
+
+  .pulse {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(16,185,129,.7);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(16,185,129,.7); }
+    70% { box-shadow: 0 0 0 7px rgba(16,185,129,0); }
+    100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  }
+
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid #ffffff33; border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #toast {
+    position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 24px; z-index: 9999;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 14px 20px;
+    font-family: var(--mono); font-size: 0.82rem; min-width: 220px; max-width: calc(100vw - 48px);
+    box-shadow: 0 8px 32px #00000088;
+    display: none; animation: slideUp .25s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: .8rem;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(to right, var(--border2), transparent);
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.2rem 1.5rem;
+    padding-bottom: calc(1.2rem + var(--safe-bottom));
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    position: relative; z-index: 1;
+  }
+  footer a { color: var(--accent3); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* Connection status banner */
+  #offline-banner {
+    display: none;
+    position: fixed;
+    top: calc(64px + var(--safe-top));
+    left: 0; right: 0;
+    background: #f59e0b22;
+    border-bottom: 1px solid #f59e0b44;
+    color: var(--yellow);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    text-align: center;
+    padding: 8px;
+    z-index: 99;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-left">
+      <a href="/" style="display:flex; align-items:center; gap:14px; text-decoration:none;">
+        <div class="logo-icon">📍</div>
+        <div class="header-title">
+          <span>presençômetro<span style="color:var(--muted);">.py</span></span>
+          <span>3ºC · Técnico em Desenvolvimento de Sistemas</span>
+        </div>
+      </a>
+    </div>
+    <div class="header-right">
+      <span class="school-badge">Colégio Adaile Maria Leite</span>
+      <button id="pwa-install-btn" title="Instalar app">⬇ instalar</button>
+      <a href="/credits" class="nav-link">créditos</a>
+    </div>
+  </div>
+</header>
+
+<div id="offline-banner">📡 // sem conexão — algumas funções podem estar indisponíveis</div>
+
+{% block content %}{% endblock %}
+
+<footer>
+  <span class="dim">// </span>
+  <a href="/credits">Desenvolvido por 3ºC · TDS</a>
+  <span class="dim"> · Colégio Adaile Maria Leite · Maringá - PR</span>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+// Toast
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.innerHTML = (type === 'ok' ? '✅ ' : '❌ ') + msg;
+  el.style.display = 'block';
+  el.style.borderColor = type === 'ok' ? '#10b98166' : '#ef444466';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+// Generic fetch helpers
+async function post(url, body) {
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  return r.json();
+}
+async function get(url) {
+  const r = await fetch(url);
+  return r.json();
+}
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+// PWA Install
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  document.getElementById('pwa-install-btn').style.display = 'block';
+});
+document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+  if (!_deferredPrompt) return;
+  _deferredPrompt.prompt();
+  const { outcome } = await _deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    document.getElementById('pwa-install-btn').style.display = 'none';
+    toast('App instalado com sucesso!');
+  }
+  _deferredPrompt = null;
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install-btn').style.display = 'none';
+});
+
+// Offline detection
+function updateOnline() {
+  document.getElementById('offline-banner').style.display = navigator.onLine ? 'none' : 'block';
+}
+window.addEventListener('online', updateOnline);
+window.addEventListener('offline', updateOnline);
+updateOnline();
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

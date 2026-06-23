@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block extra_head %}
+<style>
+  .credits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .dev-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 1.5rem 1rem;
+    text-align: center;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .dev-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, #7c3aed0a, transparent);
+    pointer-events: none;
+  }
+  .dev-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px var(--neon-glow);
+  }
+  .dev-avatar {
+    width: 60px; height: 60px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; font-weight: 800;
+    margin: 0 auto 12px;
+    box-shadow: 0 0 20px var(--neon-glow);
+    font-family: var(--mono);
+    color: white;
+  }
+  .dev-name {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--text);
+  }
+  .dev-role {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .terminal-block {
+    background: #060810;
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    font-family: var(--mono);
+    font-size: .82rem;
+    line-height: 1.9;
+  }
+  .t-comment { color: #4a5568; }
+  .t-key { color: var(--accent3); }
+  .t-val { color: var(--cyan); }
+  .t-str { color: var(--green); }
+  .t-num { color: #f59e0b; }
+
+  .glow-title {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--accent2), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <!-- Hero -->
+  <div style="padding: 2.5rem 0 1.5rem; text-align:center;">
+    <div class="tag-line" style="margin-bottom:.8rem; justify-content:center;">
+      <span class="dim">$ </span><span class="hi">cat</span> credits.txt
+    </div>
+    <h2 class="glow-title">créditos</h2>
+    <p style="font-family:var(--mono); font-size:.82rem; color:var(--muted); margin-top:.5rem;">
+      // desenvolvido com 💜 pela turma 3ºC
+    </p>
+  </div>
+
+  <!-- Sobre o projeto -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="section-label">// projeto.info</div>
+    <div class="terminal-block">
+      <span class="t-comment"># presençômetro com geolocalização</span><br>
+      <span class="t-key">escola</span>     <span class="t-val">=</span> <span class="t-str">"Colégio Adaile Maria Leite"</span><br>
+      <span class="t-key">cidade</span>     <span class="t-val">=</span> <span class="t-str">"Maringá, Paraná - BR"</span><br>
+      <span class="t-key">turma</span>      <span class="t-val">=</span> <span class="t-str">"3ºC"</span><br>
+      <span class="t-key">curso</span>      <span class="t-val">=</span> <span class="t-str">"Técnico em Desenvolvimento de Sistemas"</span><br>
+      <span class="t-key">stack</span>      <span class="t-val">=</span> [<span class="t-str">"Python"</span>, <span class="t-str">"Flask"</span>, <span class="t-str">"Leaflet.js"</span>, <span class="t-str">"HTML/CSS"</span>]<br>
+      <span class="t-key">versao</span>     <span class="t-val">=</span> <span class="t-num">1.0.0</span><br>
+      <span class="t-comment"># geolocalização via Haversine Formula + GPS API</span>
+    </div>
+  </div>
+
+  <!-- Devs -->
+  <div class="section-label">// equipe.devs[]</div>
+
+  <div class="credits-grid">
+
+    <div class="dev-card">
+      <div class="dev-avatar">T</div>
+      <div class="dev-name">Thiago</div>
+      <div class="dev-role">// dev</div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-avatar">A</div>
+      <div class="dev-name">André</div>
+      <div class="dev-role">// dev</div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-avatar">H</div>
+      <div class="dev-name">Henrique</div>
+      <div class="dev-role">// dev</div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-avatar">K</div>
+      <div class="dev-name">Kemilly</div>
+      <div class="dev-role">// dev</div>
+    </div>
+
+    <div class="dev-card">
+      <div class="dev-avatar">H</div>
+      <div class="dev-name">Hayanni</div>
+      <div class="dev-role">// dev</div>
+    </div>
+
+  </div>
+
+  <!-- Tech stack -->
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="section-label">// tecnologias</div>
+    <div style="display:flex; flex-wrap:wrap; gap:.7rem; margin-top:.2rem;">
+      <span class="badge badge-purple">🐍 Python 3</span>
+      <span class="badge badge-purple">⚗️ Flask</span>
+      <span class="badge badge-purple">🗺 Leaflet.js</span>
+      <span class="badge badge-purple">📡 Geolocation API</span>
+      <span class="badge badge-purple">🌐 OpenStreetMap</span>
+      <span class="badge badge-purple">📐 Haversine</span>
+      <span class="badge badge-purple">🎨 CSS3</span>
+      <span class="badge badge-purple">⚡ JS ES6+</span>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding: 2rem 0 1rem;">
+    <a href="/" class="btn btn-primary">→ ir para o presençômetro</a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  #map {
+    height: 220px; border-radius: 10px;
+    border: 1px solid var(--border2);
+    filter: saturate(0.7) hue-rotate(200deg) brightness(0.85);
+  }
+  .record-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 0; border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 0.82rem;
+    transition: padding .15s;
+    animation: fadeIn .25s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+  .record-row:last-child { border-bottom: none; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+    box-shadow: 0 0 10px var(--neon-glow);
+  }
+  .big-count {
+    font-family: var(--mono);
+    font-size: clamp(2.5rem, 10vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent2), var(--cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  /* QR code area */
+  #qr-area { display:none; text-align:center; padding:1rem 0; }
+  #qr-area canvas { border-radius: 8px; }
+
+  /* Mobile: stack columns */
+  @media (max-width: 640px) {
+    .session-actions { flex-direction: column; align-items: stretch; }
+    .session-actions .btn { justify-content: center; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <!-- Header da sessão -->
+  <div class="card" style="margin-bottom:1.2rem;">
+    <div class="tag-line" style="margin-bottom:.6rem;">
+      <span class="dim">// sessao_id: </span><span style="color:var(--muted); word-break:break-all;">{{ session.id }}</span>
+    </div>
+    <div class="flex-between">
+      <div style="flex:1; min-width:0;">
+        <div class="flex" style="margin-bottom:5px; flex-wrap:wrap; gap:8px;">
+          <h2 style="font-family:var(--mono); font-size:clamp(1rem,4vw,1.2rem); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:300px;">{{ session.name }}</h2>
+          {% if session.active %}
+          <span class="badge badge-green"><span class="pulse"></span> online</span>
+          {% else %}
+          <span class="badge badge-red">offline</span>
+          {% endif %}
+        </div>
+        <div style="font-family:var(--mono); font-size:0.72rem; color:var(--muted); display:flex; gap:12px; flex-wrap:wrap;">
+          <span>📅 {{ session.created_at[:16].replace('T',' às ') }}</span>
+          {% if session.lat %}
+          <span>🔵 raio: {{ session.radius }}m</span>
+          {% else %}
+          <span>🌐 sem restrição geo</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex session-actions" style="flex-wrap:wrap; gap:6px; flex-shrink:0; margin-left:8px;">
+        <a href="/api/session/{{ session.id }}/export" class="btn btn-outline btn-sm">📥 .csv</a>
+        <button class="btn btn-outline btn-sm" onclick="toggleQR()">📲 QR</button>
+        {% if session.active %}
+        <button class="btn btn-outline btn-sm" onclick="shareSession()">🔗 link</button>
+        <button class="btn btn-danger btn-sm" onclick="closeSession()">⬛ encerrar</button>
+        {% endif %}
+        <a href="/" class="btn btn-outline btn-sm">← voltar</a>
+      </div>
+    </div>
+
+    <!-- QR Code area -->
+    <div id="qr-area">
+      <canvas id="qr-canvas"></canvas>
+      <p style="font-family:var(--mono); font-size:.72rem; color:var(--muted); margin-top:.5rem;">
+        aponte a câmera do celular para fazer check-in
+      </p>
+    </div>
+  </div>
+
+  <div class="grid-2" style="align-items:start;">
+
+    <!-- Coluna esquerda -->
+    <div>
+
+      <!-- Contador -->
+      <div class="card" style="text-align:center; padding:1.5rem 1rem; margin-bottom:1.2rem;">
+        <div class="big-count" id="big-count">{{ records|length }}</div>
+        <div style="font-family:var(--mono); font-size:.75rem; color:var(--muted); margin-top:4px;">
+          presença(s) registrada(s)
+        </div>
+        <div style="margin-top:.8rem;">
+          <span id="sync-indicator" style="font-family:var(--mono); font-size:.7rem; color:var(--muted);">↻ sync auto · 15s</span>
+        </div>
+      </div>
+
+      <!-- Check-in form -->
+      {% if session.active %}
+      <div class="card card-accent">
+        <div class="section-label">// checkin.register()</div>
+
+        <div class="form-group">
+          <label>// seu_nome</label>
+          <input id="input-name" type="text" placeholder="nome completo..." maxlength="80"
+            autocomplete="name" autocorrect="off" autocapitalize="words" spellcheck="false" />
+        </div>
+
+        <button class="btn btn-primary" id="btn-checkin" onclick="doCheckin()"
+          style="width:100%; justify-content:center; font-size:.88rem; padding:14px;">
+          ▶ registrar presença
+        </button>
+
+        <div id="checkin-msg" style="margin-top:12px; display:none;"></div>
+
+        {% if session.lat %}
+        <div style="margin-top:1rem; font-family:var(--mono); font-size:0.75rem; display:flex; align-items:center; gap:8px;">
+          <span style="color:var(--muted);">// gps_status:</span>
+          <span id="user-loc-info" style="color:var(--muted);">
+            <span class="spinner" style="border-width:1.5px;"></span> detectando...
+          </span>
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="card" style="text-align:center; padding:2.5rem; color:var(--muted);">
+        <div style="font-family:var(--mono); font-size:1.5rem; opacity:.3; margin-bottom:.5rem;">🔒</div>
+        <p style="font-family:var(--mono); font-size:.8rem;">// sessão encerrada<br>novos registros bloqueados</p>
+      </div>
+      {% endif %}
+
+      <!-- Mapa -->
+      {% if session.lat %}
+      <div class="card" style="padding:1rem; margin-top:1.2rem;">
+        <div class="section-label">// mapa.render()</div>
+        <div id="map"></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Coluna direita: lista -->
+    <div>
+      <div class="card">
+        <div class="flex-between" style="margin-bottom:1rem;">
+          <div class="section-label" style="margin-bottom:0; flex:1;">
+            // presenças &nbsp;<span id="count-badge" class="badge badge-purple">{{ records|length }}</span>
+          </div>
+          <div class="flex" style="gap:6px;">
+            <input id="search-input" type="search" placeholder="🔍 buscar..." style="width:140px; padding:6px 10px; font-size:.78rem;" oninput="filterList()" />
+            <button class="btn btn-outline btn-sm" onclick="refreshList()" title="Sincronizar">↻</button>
+          </div>
+        </div>
+
+        <div id="records-list">
+          {% if not records %}
+          <div style="text-align:center; color:var(--muted); padding:2.5rem 0; font-family:var(--mono); font-size:.8rem;">
+            // lista vazia — aguardando check-ins
+          </div>
+          {% else %}
+          {% for r in records %}
+          <div class="record-row" data-name="{{ r.name|lower }}">
+            <div class="flex">
+              <div class="avatar">{{ r.name[0].upper() }}</div>
+              <div style="margin-left:6px;">
+                <div style="font-weight:600; color:var(--text);">{{ r.name }}</div>
+                <div style="color:var(--muted); font-size:.72rem;">
+                  {{ r.timestamp[11:16] }} · {{ r.timestamp[:10].split('-')|reverse|join('/') }}
+                </div>
+              </div>
+            </div>
+            <div>
+              {% if r.distance is not none %}
+              <span class="badge badge-green">{{ r.distance }}m</span>
+              {% else %}
+              <span class="badge badge-yellow">sem gps</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const SESSION_ID = "{{ session.id }}";
+const SESSION_LAT = {{ session.lat or 'null' }};
+const SESSION_LON = {{ session.lon or 'null' }};
+const SESSION_RADIUS = {{ session.radius }};
+let userLat = null, userLon = null;
+let allRecords = [];
+let qrGenerated = false;
+
+// ---- MAP ----
+{% if session.lat %}
+const map = L.map('map').setView([SESSION_LAT, SESSION_LON], 16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(map);
+
+const purpleIcon = L.divIcon({ className:'', html:'<div style="width:14px;height:14px;border-radius:50%;background:#a855f7;border:2px solid #fff;box-shadow:0 0 10px #a855f788;"></div>' });
+L.marker([SESSION_LAT, SESSION_LON], { icon: purpleIcon }).addTo(map).bindPopup('<b>Centro da sessão</b>');
+L.circle([SESSION_LAT, SESSION_LON], { radius: SESSION_RADIUS, color:'#7c3aed', fillColor:'#7c3aed', fillOpacity:0.15 }).addTo(map);
+let userMarker = null;
+{% endif %}
+
+// ---- GPS ----
+{% if session.lat %}
+function startGPS() {
+  if (!navigator.geolocation) {
+    document.getElementById('user-loc-info').textContent = '⚠ GPS não suportado';
+    return;
+  }
+  navigator.geolocation.watchPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLon = pos.coords.longitude;
+    const dist = haversine(SESSION_LAT, SESSION_LON, userLat, userLon);
+    const ok = dist <= SESSION_RADIUS;
+    const el = document.getElementById('user-loc-info');
+    el.innerHTML = `${ok ? '✔ dentro da área' : '⚠ fora da área'} <span style="color:var(--muted);">(${Math.round(dist)}m)</span>`;
+    el.style.color = ok ? 'var(--green)' : 'var(--red)';
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.marker([userLat, userLon], {
+      icon: L.divIcon({ className:'', html:'<div style="width:12px;height:12px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 0 8px #10b98188;"></div>' })
+    }).addTo(map).bindPopup('Você está aqui');
+  }, () => {
+    const el = document.getElementById('user-loc-info');
+    el.textContent = '⚠ não foi possível obter GPS';
+    el.style.color = 'var(--yellow)';
+  }, { enableHighAccuracy: true, maximumAge: 5000 });
+}
+startGPS();
+{% endif %}
+
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=6371000, φ1=lat1*Math.PI/180, φ2=lat2*Math.PI/180;
+  const Δφ=(lat2-lat1)*Math.PI/180, Δλ=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(Δφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ---- CHECK-IN ----
+async function doCheckin() {
+  const name = document.getElementById('input-name').value.trim();
+  if (!name) { showMsg('nome não pode ser vazio', 'err'); return; }
+  const btn = document.getElementById('btn-checkin');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> processando...';
+  const body = { session_id: SESSION_ID, name };
+  if (userLat !== null) { body.lat = userLat; body.lon = userLon; }
+  try {
+    const res = await fetch('/api/checkin', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    }).then(r=>r.json());
+    if (res.ok) {
+      showMsg('✔ presença registrada!', 'ok');
+      document.getElementById('input-name').value = '';
+      btn.innerHTML = '✔ registrado!';
+      setTimeout(() => { btn.innerHTML = '▶ registrar presença'; btn.disabled = false; }, 3000);
+      refreshList();
+    } else {
+      showMsg(res.error || 'erro ao registrar', 'err');
+      btn.innerHTML = '▶ registrar presença'; btn.disabled = false;
+    }
+  } catch(e) {
+    showMsg('erro de conexão — verifique sua internet', 'err');
+    btn.innerHTML = '▶ registrar presença'; btn.disabled = false;
+  }
+}
+
+function showMsg(msg, type) {
+  const el = document.getElementById('checkin-msg');
+  el.style.display='block';
+  el.className = type==='ok' ? 'alert alert-success' : 'alert alert-error';
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display='none'; }, 5000);
+}
+
+// ---- RECORDS LIST ----
+function renderRecords(records) {
+  allRecords = records;
+  filterList();
+  document.getElementById('count-badge').textContent = records.length;
+  document.getElementById('big-count').textContent = records.length;
+}
+
+function filterList() {
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+  const list = q ? allRecords.filter(r => r.name.toLowerCase().includes(q)) : allRecords;
+  const container = document.getElementById('records-list');
+  if (list.length === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);padding:2.5rem 0;font-family:var(--mono);font-size:.8rem;">
+      ${q ? '// nenhum resultado' : '// lista vazia — aguardando check-ins'}</div>`;
+    return;
+  }
+  container.innerHTML = list.map(r => {
+    const initial = r.name[0].toUpperCase();
+    const time = r.timestamp.slice(11,16);
+    const date = r.timestamp.slice(0,10).split('-').reverse().join('/');
+    const dist = r.distance !== null
+      ? `<span class="badge badge-green">${r.distance}m</span>`
+      : `<span class="badge badge-yellow">sem gps</span>`;
+    return `<div class="record-row">
+      <div class="flex">
+        <div class="avatar">${initial}</div>
+        <div style="margin-left:6px;">
+          <div style="font-weight:600;color:var(--text);">${r.name}</div>
+          <div style="color:var(--muted);font-size:.72rem;">${time} · ${date}</div>
+        </div>
+      </div>
+      <div>${dist}</div>
+    </div>`;
+  }).join('');
+}
+
+async function refreshList() {
+  const ind = document.getElementById('sync-indicator');
+  ind.textContent = '↻ sincronizando...';
+  ind.style.color = 'var(--accent3)';
+  try {
+    const res = await fetch(`/api/session/${SESSION_ID}/records`).then(r=>r.json());
+    renderRecords(res.records || res);
+    ind.textContent = `↻ sync · ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+    ind.style.color = 'var(--green)';
+  } catch(e) {
+    ind.textContent = '↻ erro de sync';
+    ind.style.color = 'var(--red)';
+  }
+}
+
+// ---- CLOSE SESSION ----
+async function closeSession() {
+  if (!confirm('// encerrar sessão? novos check-ins serão bloqueados.')) return;
+  const res = await fetch(`/api/session/${SESSION_ID}/close`, { method:'POST' }).then(r=>r.json());
+  if (res.ok) { toast('sessão encerrada'); setTimeout(() => location.reload(), 800); }
+  else { toast(res.error || 'erro', 'err'); }
+}
+
+// ---- SHARE ----
+function shareSession() {
+  const url = `${location.origin}/session/${SESSION_ID}`;
+  if (navigator.share) {
+    navigator.share({ title: '{{ session.name }}', url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(url).then(() => toast('link copiado!'));
+  }
+}
+
+// ---- QR CODE ----
+function toggleQR() {
+  const area = document.getElementById('qr-area');
+  if (area.style.display === 'block') {
+    area.style.display = 'none'; return;
+  }
+  area.style.display = 'block';
+  if (!qrGenerated) {
+    const url = `${location.origin}/session/${SESSION_ID}`;
+    new QRCode(document.getElementById('qr-canvas'), {
+      text: url, width: 180, height: 180,
+      colorDark: '#a855f7', colorLight: '#0d1120',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    qrGenerated = true;
+  }
+}
+
+// ---- AUTO SYNC ----
+setInterval(refreshList, 15000);
+
+// ---- KEYBOARD ----
+document.getElementById('input-name')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') doCheckin();
+});
+
+// Initial load
+refreshList();
+</script>
+{% endblock %}
